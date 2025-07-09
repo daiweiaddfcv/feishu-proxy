@@ -1,3 +1,34 @@
+let cachedToken = null;
+let tokenExpireAt = 0;
+
+// 你的飞书 App ID 和 App Secret（请替换为你自己的真实值）
+const appId = 'cli_a6690ce77472500e'; // 你的 App ID
+const appSecret = 'JPDFQ4tWZHQRD2gh9B1Dhfukxe1rqX0c'; // 你的 App Secret
+
+async function getTenantAccessToken() {
+  const now = Date.now();
+  if (cachedToken && tokenExpireAt > now + 60 * 1000) { // 提前1分钟刷新
+    return cachedToken;
+  }
+  // 获取新 token
+  const res = await fetch('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      app_id: appId,
+      app_secret: appSecret
+    })
+  });
+  const data = await res.json();
+  if (data.tenant_access_token) {
+    cachedToken = data.tenant_access_token;
+    tokenExpireAt = now + (data.expire * 1000);
+    return cachedToken;
+  } else {
+    throw new Error('获取 tenant_access_token 失败: ' + (data.msg || JSON.stringify(data)));
+  }
+}
+
 export default async function handler(req, res) {
   // 允许所有来源跨域
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -15,17 +46,15 @@ export default async function handler(req, res) {
     return;
   }
 
-  // 1. 你的飞书参数
-  const token = 't-g10479eCYDWZ3WGH4FA3HZGJCCV6QXHT5BV23HRK';
+  // 你的多维表格参数
   const appToken = 'SFMCw9J8Ri8eQGkZJofczNO1n6g';
   const tableId = 'tbloO7oEhgssSlxj';
 
-  // 2. 获取 Figma 插件发来的数据
   const { records } = req.body;
 
-  // 3. 请求飞书 API
-  const url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/records/batch_create`;
   try {
+    const token = await getTenantAccessToken();
+    const url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/records/batch_create`;
     const feishuRes = await fetch(url, {
       method: 'POST',
       headers: {
