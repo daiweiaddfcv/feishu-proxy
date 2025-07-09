@@ -1,3 +1,36 @@
+// 1. 先定义 token 缓存和飞书 App 信息
+let cachedToken = null;
+let tokenExpireAt = 0;
+
+const appId = 'cli_a6690ce77472500e'; // 你的 App ID
+const appSecret = 'JPDFQ4tWZHQRD2gh9B1Dhfukxe1rqX0c'; // 你的 App Secret
+
+// 2. getTenantAccessToken 函数
+async function getTenantAccessToken() {
+  const now = Date.now();
+  if (cachedToken && tokenExpireAt > now + 60 * 1000) { // 提前1分钟刷新
+    return cachedToken;
+  }
+  // 获取新 token
+  const res = await fetch('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      app_id: appId,
+      app_secret: appSecret
+    })
+  });
+  const data = await res.json();
+  if (data.tenant_access_token) {
+    cachedToken = data.tenant_access_token;
+    tokenExpireAt = now + (data.expire * 1000);
+    return cachedToken;
+  } else {
+    throw new Error('获取 tenant_access_token 失败: ' + (data.msg || JSON.stringify(data)));
+  }
+}
+
+// 3. handler 函数（你的代码，保持不变）
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
