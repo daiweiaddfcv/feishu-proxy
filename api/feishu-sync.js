@@ -9,6 +9,9 @@
 \f0\fs24 \cf0 \expnd0\expndtw0\kerning0
 \outl0\strokewidth0 \strokec2 // api/feishu-sync.js\
 export default async function handler(req, res) \{\
+res.setHeader('Access-Control-Allow-Origin', '*');
+     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method !== 'POST') \{\
     res.status(405).json(\{ error: 'Method Not Allowed' \});\
     return;\
