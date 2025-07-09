@@ -2,8 +2,8 @@ let cachedToken = null;
 let tokenExpireAt = 0;
 
 // 你的飞书 App ID 和 App Secret（请替换为你自己的真实值）
-const appId = 'cli_a7e0e7e1b0b8d00b'; // 你的 App ID
-const appSecret = 'Q2w4nQw8Q0w4nQw8Q0w4nQw8Q0w4nQw8'; // 你的 App Secret
+const appId = 'cli_a6690ce77472500e'; // 你的 App ID
+const appSecret = 'JPDFQ4tWZHQRD2gh9B1Dhfukxe1rqX0c'; // 你的 App Secret
 
 async function getTenantAccessToken() {
   const now = Date.now();
