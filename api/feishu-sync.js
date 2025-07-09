@@ -2,8 +2,8 @@ let cachedToken = null;
 let tokenExpireAt = 0;
 
 // 你的飞书 App ID 和 App Secret（请替换为你自己的真实值）
-const appId = 'cli_a6690ce77472500e'; // 你的 App ID
-const appSecret = 'JPDFQ4tWZHQRD2gh9B1Dhfukxe1rqX0c'; // 你的 App Secret
+const appId = 'cli_a7e0e7e1b0b8d00b'; // 你的 App ID
+const appSecret = 'Q2w4nQw8Q0w4nQw8Q0w4nQw8Q0w4nQw8'; // 你的 App Secret
 
 async function getTenantAccessToken() {
   const now = Date.now();
@@ -30,12 +30,10 @@ async function getTenantAccessToken() {
 }
 
 export default async function handler(req, res) {
-  // 允许所有来源跨域
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // 处理预检请求
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
@@ -53,7 +51,40 @@ export default async function handler(req, res) {
   const { records } = req.body;
 
   try {
+    // 1. 获取当前表格所有“组件名称”
     const token = await getTenantAccessToken();
+    let existNames = new Set();
+    let hasMore = true;
+    let pageToken = '';
+    while (hasMore) {
+      const url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/records?page_size=100${pageToken ? `&page_token=${pageToken}` : ''}`;
+      const resp = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': 'Bearer ' + token
+        }
+      });
+      const data = await resp.json();
+      if (data.data && data.data.items) {
+        for (const item of data.data.items) {
+          if (item.fields && item.fields['组件名称']) {
+            existNames.add(item.fields['组件名称']);
+          }
+        }
+      }
+      hasMore = data.data && data.data.has_more;
+      pageToken = hasMore ? data.data.page_token : '';
+    }
+
+    // 2. 过滤掉已存在的组件名称
+    const newRecords = records.filter(r => !existNames.has(r.fields['组件名称']));
+
+    if (newRecords.length === 0) {
+      res.status(200).json({ success: true, message: '全部组件已存在，无需同步' });
+      return;
+    }
+
+    // 3. 批量写入新组件
     const url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/records/batch_create`;
     const feishuRes = await fetch(url, {
       method: 'POST',
@@ -61,11 +92,11 @@ export default async function handler(req, res) {
         'Authorization': 'Bearer ' + token,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ records })
+      body: JSON.stringify({ records: newRecords })
     });
     const result = await feishuRes.json();
     if (result.code === 0) {
-      res.status(200).json({ success: true, message: '同步成功', feishu: result });
+      res.status(200).json({ success: true, message: `成功导入${newRecords.length}条新组件`, feishu: result });
     } else {
       res.status(500).json({ success: false, message: result.msg || '飞书API错误', feishu: result });
     }
