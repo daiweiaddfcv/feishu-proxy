@@ -4,7 +4,7 @@ let cachedToken = null;
 let tokenExpireAt = 0;
 
 const appId = 'cli_a6690ce77472500e'; // 你的 App ID
-const appSecret = 'JPDFQ4tWZHQRD2ghB1Dhfukxe1rqX0c'; // 你的 App Secret
+const appSecret = 'JPDFQ4tWZHQRD2gh9B1Dhfukxe1rqX0c'; // 你的 App Secret
 
 async function getTenantAccessToken() {
   const now = Date.now();
