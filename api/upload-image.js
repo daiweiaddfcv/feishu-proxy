@@ -1,5 +1,7 @@
 // feishu-proxy/api/upload-image.js
 
+import FormData from 'form-data'; // 顶部引入 form-data 包
+
 let cachedToken = null;
 let tokenExpireAt = 0;
 
@@ -53,7 +55,7 @@ export default async function handler(req, res) {
 
   try {
     const token = await getTenantAccessToken();
-    // 构造 multipart/form-data
+    // 用 form-data 构造 multipart/form-data
     const form = new FormData();
     form.append('image', Buffer.from(base64, 'base64'), {
       filename: 'component.png',
@@ -64,6 +66,7 @@ export default async function handler(req, res) {
       method: 'POST',
       headers: {
         'Authorization': 'Bearer ' + token,
+        ...form.getHeaders()
       },
       body: form
     });
@@ -74,8 +77,9 @@ export default async function handler(req, res) {
       res.status(500).json({ success: false, message: data.msg || '上传失败', feishu: data });
     }
   } catch (e) {
-   console.error('upload-image error:', e, e?.stack);
-   res.status(500).json({ success: false, message: e.message, stack: e.stack });
-    res.status(500).json({ success: false, message: e.message });
+    console.error('upload-image error:', e, e?.stack);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: e.message, stack: e.stack });
+    }
   }
 }
