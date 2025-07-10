@@ -1,4 +1,34 @@
-// ... existing code ...
+import FormData from 'form-data';
+
+let cachedToken = null;
+let tokenExpireAt = 0;
+
+const appId = 'cli_a6690ce77472500e'; // 你的 App ID
+const appSecret = 'JPDFQ4tWZHQRD2ghB1Dhfukxe1rqX0c'; // 你的 App Secret
+
+async function getTenantAccessToken() {
+  const now = Date.now();
+  if (cachedToken && tokenExpireAt > now + 60 * 1000) {
+    return cachedToken;
+  }
+  const res = await fetch('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      app_id: appId,
+      app_secret: appSecret
+    })
+  });
+  const data = await res.json();
+  if (data.tenant_access_token) {
+    cachedToken = data.tenant_access_token;
+    tokenExpireAt = now + (data.expire * 1000);
+    return cachedToken;
+  } else {
+    throw new Error('获取 tenant_access_token 失败: ' + (data.msg || JSON.stringify(data)));
+  }
+}
+
 export default async function handler(req, res) {
   // CORS 头
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -55,4 +85,3 @@ export default async function handler(req, res) {
     }
   }
 }
-// ... existing code ...
