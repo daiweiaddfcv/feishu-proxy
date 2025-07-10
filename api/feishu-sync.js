@@ -1,3 +1,5 @@
+// /api/sync.js - 部署到 Vercel 的 API 文件
+
 // 1. 先定义 token 缓存和飞书 App 信息
 let cachedToken = null;
 let tokenExpireAt = 0;
@@ -30,7 +32,7 @@ async function getTenantAccessToken() {
   }
 }
 
-// 3. handler 函数（你的代码，保持不变）
+// 3. handler 函数（支持动态参数）
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -46,18 +48,25 @@ export default async function handler(req, res) {
     return;
   }
 
-  // 你的多维表格参数
-  const appToken = 'QnyYbNI4aaroOpsNTOwc8Bx0nLg';
-  const tableId = 'tblnRASMbgECv87U';
+  // 从请求体中获取动态参数
+  const { records, appToken, tableId } = req.body;
 
-  const { records } = req.body;
+  // 验证必要参数
+  if (!records || !appToken || !tableId) {
+    res.status(400).json({ 
+      success: false, 
+      message: '缺少必要参数: records, appToken, tableId' 
+    });
+    return;
+  }
 
   try {
-    // 1. 获取当前表格所有“组件名称”
+    // 1. 获取当前表格所有"组件名称"
     const token = await getTenantAccessToken();
     let existNames = new Set();
     let hasMore = true;
     let pageToken = '';
+    
     while (hasMore) {
       const url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/records?page_size=100${pageToken ? `&page_token=${pageToken}` : ''}`;
       const resp = await fetch(url, {
@@ -67,6 +76,11 @@ export default async function handler(req, res) {
         }
       });
       const data = await resp.json();
+      
+      if (data.code !== 0) {
+        throw new Error('获取表格数据失败: ' + (data.msg || JSON.stringify(data)));
+      }
+      
       if (data.data && data.data.items) {
         for (const item of data.data.items) {
           if (item.fields && item.fields['组件名称']) {
@@ -82,7 +96,11 @@ export default async function handler(req, res) {
     const newRecords = records.filter(r => !existNames.has(r.fields['组件名称']));
 
     if (newRecords.length === 0) {
-      res.status(200).json({ success: true, message: '全部组件已存在，无需同步' });
+      res.status(200).json({ 
+        success: true, 
+        message: '全部组件已存在，无需同步',
+        syncedCount: 0
+      });
       return;
     }
 
@@ -90,6 +108,7 @@ export default async function handler(req, res) {
     const BATCH_SIZE = 500;
     let allResults = [];
     let totalSuccess = 0;
+    
     for (let i = 0; i < newRecords.length; i += BATCH_SIZE) {
       const batch = newRecords.slice(i, i + BATCH_SIZE);
       const url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/records/batch_create`;
@@ -103,11 +122,17 @@ export default async function handler(req, res) {
       });
       const result = await feishuRes.json();
       allResults.push(result);
+      
       if (result.code === 0) {
         totalSuccess += batch.length;
       } else {
         // 某一批失败，立即返回
-        res.status(500).json({ success: false, message: result.msg || '飞书API错误', feishu: result, batchIndex: Math.floor(i / BATCH_SIZE) + 1 });
+        res.status(500).json({ 
+          success: false, 
+          message: result.msg || '飞书API错误', 
+          feishu: result, 
+          batchIndex: Math.floor(i / BATCH_SIZE) + 1 
+        });
         return;
       }
     }
@@ -116,9 +141,14 @@ export default async function handler(req, res) {
     res.status(200).json({
       success: true,
       message: `成功导入${totalSuccess}条新组件（共${allResults.length}批）`,
+      syncedCount: totalSuccess,
       feishu: allResults
     });
   } catch (e) {
-    res.status(500).json({ success: false, message: e.message });
+    console.error('API Error:', e);
+    res.status(500).json({ 
+      success: false, 
+      message: e.message 
+    });
   }
 }
