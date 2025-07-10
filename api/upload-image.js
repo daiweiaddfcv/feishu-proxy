@@ -74,6 +74,8 @@ export default async function handler(req, res) {
       res.status(500).json({ success: false, message: data.msg || '上传失败', feishu: data });
     }
   } catch (e) {
+   console.error('upload-image error:', e, e?.stack);
+   res.status(500).json({ success: false, message: e.message, stack: e.stack });
     res.status(500).json({ success: false, message: e.message });
   }
 }
