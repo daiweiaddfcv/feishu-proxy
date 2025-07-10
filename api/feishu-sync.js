@@ -48,7 +48,7 @@ export default async function handler(req, res) {
 
   // 你的多维表格参数
   const appToken = 'QnyYbNI4aaroOpsNTOwc8Bx0nLg';
-  const tableId = 'tblSYAjKKxgxB9fg';
+  const tableId = 'tbloUQTN9kvStqsS';
 
   const { records } = req.body;
 
