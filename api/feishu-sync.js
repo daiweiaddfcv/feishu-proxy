@@ -34,10 +34,12 @@ async function getTenantAccessToken() {
 
 // 3. handler 函数（支持动态参数）
 export default async function handler(req, res) {
+  // 设置 CORS 头
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
+  // 处理预检请求
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
@@ -106,7 +108,6 @@ export default async function handler(req, res) {
 
     // 3. 分批写入新组件
     const BATCH_SIZE = 500;
-    let allResults = [];
     let totalSuccess = 0;
     
     for (let i = 0; i < newRecords.length; i += BATCH_SIZE) {
@@ -121,7 +122,6 @@ export default async function handler(req, res) {
         body: JSON.stringify({ records: batch })
       });
       const result = await feishuRes.json();
-      allResults.push(result);
       
       if (result.code === 0) {
         totalSuccess += batch.length;
@@ -140,9 +140,8 @@ export default async function handler(req, res) {
     // 全部批次成功
     res.status(200).json({
       success: true,
-      message: `成功导入${totalSuccess}条新组件（共${allResults.length}批）`,
-      syncedCount: totalSuccess,
-      feishu: allResults
+      message: `成功导入${totalSuccess}条新组件`,
+      syncedCount: totalSuccess
     });
   } catch (e) {
     console.error('API Error:', e);
