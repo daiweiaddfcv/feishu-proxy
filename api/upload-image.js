@@ -83,8 +83,10 @@ export default async function handler(req, res) {
     const data = await resp.json();
     console.log('[upload-image] 飞书 drive/v1/files/upload_all 响应:', data);
     if (data.code === 0 && data.data && data.data.file_token) {
+      console.log('[upload-image] 成功获取 file_token:', data.data.file_token);
       res.status(200).json({ success: true, file_token: data.data.file_token });
     } else {
+      console.error('[upload-image] 上传失败，响应:', data);
       res.status(500).json({ success: false, message: data.msg || '上传失败', feishu: data });
     }
   } catch (e) {
