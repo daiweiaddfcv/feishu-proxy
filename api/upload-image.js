@@ -57,6 +57,7 @@ export default async function handler(req, res) {
     const token = await getTenantAccessToken();
     // 用 form-data 构造 multipart/form-data
     const form = new FormData();
+    form.append('image_type', 'message'); // 新增，必须有
     form.append('image', Buffer.from(base64, 'base64'), {
       filename: 'component.png',
       contentType: 'image/png'
