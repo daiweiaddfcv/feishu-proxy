@@ -1,4 +1,4 @@
-import FormData from 'form-data';
+// /api/upload-image.js
 
 let cachedToken = null;
 let tokenExpireAt = 0;
@@ -30,7 +30,6 @@ async function getTenantAccessToken() {
 }
 
 export default async function handler(req, res) {
-  // CORS 头
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -47,41 +46,45 @@ export default async function handler(req, res) {
 
   const { base64 } = req.body;
   if (!base64) {
-    console.error('upload-image error: 缺少 base64 参数');
     res.status(400).json({ success: false, message: '缺少 base64 参数' });
     return;
   }
 
   try {
-    console.log('upload-image handler called, base64 length:', base64.length);
     const token = await getTenantAccessToken();
-    // 用 form-data 构造 multipart/form-data
-    const form = new FormData();
-    form.append('image', Buffer.from(base64, 'base64'), {
-      filename: 'component.png',
-      contentType: 'image/png'
-    });
-
-    console.log('upload-image: start fetch to feishu im/v1/images api');
-    const resp = await fetch('https://open.feishu.cn/open-apis/im/v1/images', {
+    // 上传图片到飞书图片接口
+    const resp = await fetch('https://open.feishu.cn/open-apis/image/v4/put/', {
       method: 'POST',
       headers: {
         'Authorization': 'Bearer ' + token,
-        ...form.getHeaders()
+        // 注意：必须用 multipart/form-data
       },
-      body: form
+      body: createFormData(base64)
     });
     const data = await resp.json();
-    console.log('upload-image: feishu im/v1/images api response', data);
     if (data.code === 0 && data.data && data.data.image_key) {
+      // 飞书多维表格图片字段支持 image_key
       res.status(200).json({ success: true, url: `image://${data.data.image_key}` });
     } else {
       res.status(500).json({ success: false, message: data.msg || '上传失败', feishu: data });
     }
   } catch (e) {
-    console.error('upload-image error:', e, e?.stack);
-    if (!res.headersSent) {
-      res.status(500).json({ success: false, message: e.message, stack: e.stack });
-    }
+    res.status(500).json({ success: false, message: e.message });
   }
+}
+
+// 辅助函数：构造 multipart/form-data
+function createFormData(base64) {
+  const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substr(2);
+  const data = [
+    `--${boundary}`,
+    'Content-Disposition: form-data; name="image"; filename="component.png"',
+    'Content-Type: image/png',
+    '',
+    Buffer.from(base64, 'base64'),
+    `--${boundary}--`,
+    ''
+  ];
+  // 注意：Vercel 可能需要用 Buffer.concat
+  return Buffer.concat(data.map(d => (typeof d === 'string' ? Buffer.from(d + '\r\n') : d)));
 }
