@@ -3,8 +3,8 @@ import FormData from 'form-data';
 let cachedToken = null;
 let tokenExpireAt = 0;
 
-const appId = 'cli_a6690ce77472500e'; // 你的 App ID
-const appSecret = 'JPDFQ4tWZHQRD2gh9B1Dhfukxe1rqX0c'; // 你的 App Secret
+const appId = 'cli_a6690ce77472500e';
+const appSecret = 'JPDFQ4tWZHQRD2gh9B1Dhfukxe1rqX0c';
 
 async function getTenantAccessToken() {
   const now = Date.now();
@@ -35,7 +35,6 @@ async function getTenantAccessToken() {
 export default async function handler(req, res) {
   console.log('[upload-image] handler 进入, method:', req.method);
 
-  // CORS 头
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -64,7 +63,7 @@ export default async function handler(req, res) {
     const token = await getTenantAccessToken();
     // 用 form-data 构造 multipart/form-data
     const form = new FormData();
-    form.append('image_type', 'message'); // 新增，必须有
+    form.append('image_type', 'message'); // 推荐加上
     form.append('image', Buffer.from(base64, 'base64'), {
       filename: 'component.png',
       contentType: 'image/png'
