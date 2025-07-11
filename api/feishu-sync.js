@@ -1,3 +1,31 @@
+import FormData from 'form-data';
+
+async function uploadToFeishuDrive(base64, fileName, tenantAccessToken) {
+  const form = new FormData();
+  form.append('file_name', fileName);
+  form.append('parent_type', 'explorer');
+  form.append('parent_node', '0');
+  form.append('file', Buffer.from(base64, 'base64'), {
+    filename: fileName,
+    contentType: 'image/png'
+  });
+  const resp = await fetch('https://open.feishu.cn/open-apis/drive/v1/files/upload_all', {
+    method: 'POST',
+    headers: {
+      ...form.getHeaders(),
+      'Authorization': 'Bearer ' + tenantAccessToken,
+    },
+    body: form
+  });
+  const data = await resp.json();
+  if (data.code === 0 && data.data && data.data.file_token) {
+    return data.data.file_token;
+  } else {
+    console.error('[feishu-sync] 上传图片失败:', data);
+    return '';
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -17,7 +45,6 @@ export default async function handler(req, res) {
 
   let records, appToken, tableId;
   try {
-    // 兼容 JSON body 和字符串 body
     if (typeof req.body === 'string') {
       console.log('[feishu-sync] 尝试解析字符串 body');
       const parsed = JSON.parse(req.body);
@@ -45,47 +72,24 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. 获取当前表格所有“组件名称”
     const token = await getTenantAccessToken();
-    let existNames = new Set();
-    let hasMore = true;
-    let pageToken = '';
-    let totalFetched = 0;
-    while (hasMore) {
-      const url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/records?page_size=100${pageToken ? `&page_token=${pageToken}` : ''}`;
-      console.log('[feishu-sync] 拉取表格数据:', url);
-      const resp = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Authorization': 'Bearer ' + token
-        }
-      });
-      const data = await resp.json();
-      console.log('[feishu-sync] 拉取返回:', JSON.stringify(data));
-      if (data.data && data.data.items) {
-        for (const item of data.data.items) {
-          if (item.fields && item.fields['组件名称']) {
-            existNames.add(item.fields['组件名称']);
-          }
-        }
-        totalFetched += data.data.items.length;
+    // 组装新 records，云端上传图片，回填 file_token
+    const newRecords = await Promise.all(records.map(async (rec, idx) => {
+      let fileToken = '';
+      if (rec.fields && rec.fields.thumbnail) {
+        fileToken = await uploadToFeishuDrive(rec.fields.thumbnail, `component_${idx}.png`, token);
       }
-      hasMore = data.data && data.data.has_more;
-      pageToken = hasMore ? data.data.page_token : '';
-    }
-    console.log('[feishu-sync] 已有组件名称数量:', existNames.size, '总拉取记录数:', totalFetched);
-
-    // 2. 过滤掉已存在的组件名称
-    const newRecords = records.filter(r => !existNames.has(r.fields['组件名称']));
-    console.log('[feishu-sync] 需写入新组件数量:', newRecords.length);
-
-    if (newRecords.length === 0) {
-      console.log('[feishu-sync] 全部组件已存在，无需同步');
-      res.status(200).json({ success: true, message: '全部组件已存在，无需同步' });
-      return;
-    }
-
-    // 3. 分批写入新组件
+      return {
+        fields: {
+          ...rec.fields,
+          // 用 file_token 回填“组件截图”字段
+          "组件截图": fileToken ? [{ file_token: fileToken }] : [],
+        }
+      };
+    }));
+    // 只保留需要的字段
+    newRecords.forEach(r => { if (r.fields.thumbnail) delete r.fields.thumbnail; });
+    // 分批写入新组件
     const BATCH_SIZE = 500;
     let allResults = [];
     let totalSuccess = 0;
@@ -112,7 +116,6 @@ export default async function handler(req, res) {
         return;
       }
     }
-
     console.log('[feishu-sync] 全部批次写入完成，总成功:', totalSuccess);
     res.status(200).json({
       success: true,
