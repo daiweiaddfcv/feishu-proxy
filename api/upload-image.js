@@ -63,14 +63,16 @@ export default async function handler(req, res) {
     const token = await getTenantAccessToken();
     // 用 form-data 构造 multipart/form-data
     const form = new FormData();
-    form.append('image_type', 'message'); // 推荐加上
-    form.append('image', Buffer.from(base64, 'base64'), {
+    form.append('file_name', 'component.png');
+    form.append('parent_type', 'explorer');
+    form.append('parent_node', '0');
+    form.append('file', Buffer.from(base64, 'base64'), {
       filename: 'component.png',
       contentType: 'image/png'
     });
 
-    console.log('[upload-image] 开始请求飞书 im/v1/images');
-    const resp = await fetch('https://open.feishu.cn/open-apis/im/v1/images', {
+    console.log('[upload-image] 开始请求飞书 drive/v1/files/upload_all');
+    const resp = await fetch('https://open.feishu.cn/open-apis/drive/v1/files/upload_all', {
       method: 'POST',
       headers: {
         'Authorization': 'Bearer ' + token,
@@ -79,9 +81,9 @@ export default async function handler(req, res) {
       body: form
     });
     const data = await resp.json();
-    console.log('[upload-image] 飞书 im/v1/images 响应:', data);
-    if (data.code === 0 && data.data && data.data.image_key) {
-      res.status(200).json({ success: true, url: `image://${data.data.image_key}` });
+    console.log('[upload-image] 飞书 drive/v1/files/upload_all 响应:', data);
+    if (data.code === 0 && data.data && data.data.file_token) {
+      res.status(200).json({ success: true, file_token: data.data.file_token });
     } else {
       res.status(500).json({ success: false, message: data.msg || '上传失败', feishu: data });
     }
