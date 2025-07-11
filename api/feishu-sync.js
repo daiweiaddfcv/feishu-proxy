@@ -27,6 +27,7 @@ async function uploadToFeishuDrive(base64, fileName, tenantAccessToken) {
 }
 
 export default async function handler(req, res) {
+  console.log('[feishu-sync] handler 进入');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -76,19 +77,18 @@ export default async function handler(req, res) {
     // 组装新 records，云端上传图片，回填 file_token
     const newRecords = await Promise.all(records.map(async (rec, idx) => {
       let fileToken = '';
-      if (rec.fields && rec.fields.thumbnail) {
-        fileToken = await uploadToFeishuDrive(rec.fields.thumbnail, `component_${idx}.png`, token);
+      if (rec.thumbnail) {
+        fileToken = await uploadToFeishuDrive(rec.thumbnail, `component_${idx}.png`, token);
       }
+      // 写入表格前彻底删除 fields.thumbnail
+      if (rec.fields && rec.fields.thumbnail) delete rec.fields.thumbnail;
       return {
         fields: {
           ...rec.fields,
-          // 用 file_token 回填“组件截图”字段
           "组件截图": fileToken ? [{ file_token: fileToken }] : [],
         }
       };
     }));
-    // 只保留需要的字段
-    newRecords.forEach(r => { if (r.fields.thumbnail) delete r.fields.thumbnail; });
     // 分批写入新组件
     const BATCH_SIZE = 500;
     let allResults = [];
