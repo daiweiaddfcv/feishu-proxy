@@ -74,12 +74,15 @@ export default async function handler(req, res) {
 
   try {
     const token = await getTenantAccessToken();
+    // 收集所有 file_token 便于调试
+    let fileTokenList = [];
     // 组装新 records，云端上传图片，回填 file_token
     const newRecords = await Promise.all(records.map(async (rec, idx) => {
       let fileToken = '';
       if (rec.thumbnail) {
         fileToken = await uploadToFeishuDrive(rec.thumbnail, `component_${idx}.png`, token);
       }
+      if (fileToken) fileTokenList.push(fileToken);
       // 写入表格前彻底删除 fields.thumbnail
       if (rec.fields && rec.fields.thumbnail) delete rec.fields.thumbnail;
       return {
@@ -119,7 +122,7 @@ export default async function handler(req, res) {
     console.log('[feishu-sync] 全部批次写入完成，总成功:', totalSuccess);
     res.status(200).json({
       success: true,
-      message: `成功导入${totalSuccess}条新组件（共${allResults.length}批）`,
+      message: `成功导入${totalSuccess}条新组件（共${allResults.length}批）\ndebug: ${JSON.stringify({ fileTokenList, newRecords })}`,
       feishu: allResults
     });
   } catch (e) {
