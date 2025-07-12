@@ -121,7 +121,7 @@ export default async function handler(req, res) {
         totalSuccess += batch.length;
       } else {
         console.error('[feishu-sync] 飞书API错误:', result);
-        res.status(500).json({ success: false, message: result.msg || '飞书API错误', feishu: result, batchIndex: Math.floor(i / BATCH_SIZE) + 1 });
+        res.status(500).json({ success: false, message: result.msg || '飞书API错误', feishu: result, batchIndex: Math.floor(i / BATCH_SIZE) + 1, debug: { records } });
         return;
       }
     }
@@ -134,6 +134,6 @@ export default async function handler(req, res) {
     });
   } catch (e) {
     console.error('[feishu-sync] 云函数捕获到错误:', e, e?.stack);
-    res.status(500).json({ success: false, message: e.message, error: e.stack });
+    res.status(500).json({ success: false, message: e.message, error: e.stack, debug: { records } });
   }
 }
