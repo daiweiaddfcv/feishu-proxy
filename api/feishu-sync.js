@@ -57,7 +57,7 @@ export default async function handler(req, res) {
     }
   } catch (parseErr) {
     console.error('[feishu-sync] 解析 body 失败:', req.body, parseErr);
-    res.status(400).json({ success: false, message: '请求体解析失败', error: parseErr.message });
+    res.status(400).json({ success: false, message: '请求体解析失败', error: parseErr.message, debug: { records } });
     return;
   }
 
@@ -67,7 +67,8 @@ export default async function handler(req, res) {
     console.error('[feishu-sync] 缺少 appToken 或 tableId 参数', { appToken, tableId });
     res.status(400).json({ 
       success: false, 
-      message: '缺少 appToken 或 tableId 参数' 
+      message: '缺少 appToken 或 tableId 参数',
+      debug: { records }
     });
     return;
   }
@@ -98,6 +99,19 @@ export default async function handler(req, res) {
     }));
     console.log('[feishu-sync] 生成的新 records:', JSON.stringify(newRecords));
     console.log('[feishu-sync] fileTokenList:', fileTokenList);
+
+    // ====== 可选：如果你有“全部组件已存在，无需同步”判断，放在这里 ======
+    // if (xxx) {
+    //   res.status(200).json({
+    //     success: true,
+    //     message: "全部组件已存在，无需同步",
+    //     syncedCount: 0,
+    //     debug: { records }
+    //   });
+    //   return;
+    // }
+    // ===========================================================
+
     // 分批写入新组件
     const BATCH_SIZE = 500;
     let allResults = [];
