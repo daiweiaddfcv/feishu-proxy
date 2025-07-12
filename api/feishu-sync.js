@@ -1,3 +1,4 @@
+import getTenantAccessToken from '../feishu-token/getTenantAccessToken.js';
 import FormData from 'form-data';
 
 async function uploadToFeishuDrive(base64, fileName, tenantAccessToken) {
