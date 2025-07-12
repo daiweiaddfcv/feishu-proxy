@@ -77,10 +77,14 @@ export default async function handler(req, res) {
     // 收集所有 file_token 便于调试
     let fileTokenList = [];
     // 组装新 records，云端上传图片，回填 file_token
+    console.log('[feishu-sync] 收到 records:', JSON.stringify(records));
     const newRecords = await Promise.all(records.map(async (rec, idx) => {
       let fileToken = '';
       if (rec.thumbnail) {
         fileToken = await uploadToFeishuDrive(rec.thumbnail, `component_${idx}.png`, token);
+        console.log(`[feishu-sync] 第${idx}条记录上传图片结果 fileToken:`, fileToken);
+      } else {
+        console.warn(`[feishu-sync] 第${idx}条记录没有 thumbnail，无法上传图片`);
       }
       if (fileToken) fileTokenList.push(fileToken);
       // 写入表格前彻底删除 fields.thumbnail
@@ -92,6 +96,8 @@ export default async function handler(req, res) {
         }
       };
     }));
+    console.log('[feishu-sync] 生成的新 records:', JSON.stringify(newRecords));
+    console.log('[feishu-sync] fileTokenList:', fileTokenList);
     // 分批写入新组件
     const BATCH_SIZE = 500;
     let allResults = [];
@@ -122,8 +128,9 @@ export default async function handler(req, res) {
     console.log('[feishu-sync] 全部批次写入完成，总成功:', totalSuccess);
     res.status(200).json({
       success: true,
-      message: `成功导入${totalSuccess}条新组件（共${allResults.length}批）\ndebug: ${JSON.stringify({ fileTokenList, newRecords })}`,
-      feishu: allResults
+      message: `成功导入${totalSuccess}条新组件（共${allResults.length}批）`,
+      feishu: allResults,
+      debug: { fileTokenList, newRecords, records }
     });
   } catch (e) {
     console.error('[feishu-sync] 云函数捕获到错误:', e, e?.stack);
