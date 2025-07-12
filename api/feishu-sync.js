@@ -2,12 +2,14 @@ import getTenantAccessToken from '../feishu-token/getTenantAccessToken.js';
 import FormData from 'form-data';
 
 async function uploadToFeishuDrive(base64, fileName, tenantAccessToken) {
+  // 确保 file_name 和 filename 都带 .png 后缀
+  const safeFileName = fileName.endsWith('.png') ? fileName : fileName + '.png';
   const form = new FormData();
-  form.append('file_name', fileName);
+  form.append('file_name', safeFileName);
   form.append('parent_type', 'explorer');
   form.append('parent_node', '0');
   form.append('file', Buffer.from(base64, 'base64'), {
-    filename: fileName,
+    filename: safeFileName,
     contentType: 'image/png'
   });
   const resp = await fetch('https://open.feishu.cn/open-apis/drive/v1/files/upload_all', {
@@ -26,6 +28,8 @@ async function uploadToFeishuDrive(base64, fileName, tenantAccessToken) {
     return '';
   }
 }
+
+// ... 下面 handler 逻辑保持不变 ...
 
 export default async function handler(req, res) {
   console.log('[feishu-sync] handler 进入');
